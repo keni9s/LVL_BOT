@@ -360,6 +360,21 @@ client.on('messageCreate', async (message) => {
 );
 
   // Send level-up notification
+  // Give role when reaching level 5
+if (newLevel >= 5 && oldLevel < 5) {
+
+  const roleId = '1371855925182464032';
+
+  const role = message.guild.roles.cache.get(roleId);
+
+  if (role && !message.member.roles.cache.has(roleId)) {
+    await message.member.roles.add(role).catch(console.error);
+
+    await message.channel.send(
+      `🎉 ${message.author} has reached Level 5 and received ${role}!`
+    );
+  }
+}
   if (newLevel > oldLevel && config.level_up_channel) {
     const channel = message.guild.channels.cache.get(config.level_up_channel);
     if (channel) {
