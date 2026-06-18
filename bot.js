@@ -371,7 +371,7 @@ if (newLevel >= 5 && oldLevel < 5) {
     await message.member.roles.add(role).catch(console.error);
 
     await message.channel.send(
-      `🎉 ${message.author} has reached Level 5 and received ${role}!`
+      `🎉 ${message.author} has reached Level 5 can send gif and pic now!`
     );
   }
 }
