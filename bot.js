@@ -291,6 +291,19 @@ client.once('ready', async () => {
   }
 });
 
+// ===================== XÓA XP KHI USER RỜI SERVER =====================
+client.on('guildMemberRemove', async (member) => {
+  try {
+    await pool.query(
+      'DELETE FROM users WHERE user_id = $1 AND guild_id = $2',
+      [member.id, member.guild.id]
+    );
+    console.log(`🗑️ Đã xóa dữ liệu XP của ${member.user.tag} (rời server ${member.guild.name})`);
+  } catch (err) {
+    console.error('❌ Lỗi khi xóa XP user rời server:', err);
+  }
+});
+
 // ===================== XP ON MESSAGE =====================
 client.on('messageCreate', async (message) => {
   if (message.author.bot || !message.guild) return;
