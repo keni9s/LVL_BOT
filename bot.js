@@ -262,6 +262,13 @@ const commands = [
   new SlashCommandBuilder()
   .setName('resetuser')
   .setDescription('[Admin] Reset a user\'s XP and Level data')
+  .addStringOption(option =>
+    option
+      .setName('password')
+      .setDescription('Confirmation password')
+      .setRequired(true)
+  )
+
   .addUserOption(option =>
     option
       .setName('user')
@@ -274,12 +281,7 @@ const commands = [
       .setDescription('Discord User ID (for users who already left)')
       .setRequired(false)
   )
-  .addStringOption(option =>
-    option
-      .setName('password')
-      .setDescription('Confirmation password')
-      .setRequired(true)
-  )
+  
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 ];
 // ===================== LEADERBOARD EMBED =====================
