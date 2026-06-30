@@ -194,6 +194,85 @@ const commands = [
         .setDescription('View another user rank')
         .setRequired(false)
     ),
+
+  new SlashCommandBuilder()
+    .setName('addxp')
+    .setDescription('[Admin] Cộng XP cho một user')
+    .addUserOption(option =>
+      option.setName('user')
+        .setDescription('User cần cộng XP')
+        .setRequired(true)
+    )
+    .addIntegerOption(option =>
+      option.setName('amount')
+        .setDescription('Số XP muốn cộng')
+        .setRequired(true)
+        .setMinValue(1)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName('removexp')
+    .setDescription('[Admin] Trừ XP của một user')
+    .addUserOption(option =>
+      option.setName('user')
+        .setDescription('User cần trừ XP')
+        .setRequired(true)
+    )
+    .addIntegerOption(option =>
+      option.setName('amount')
+        .setDescription('Số XP muốn trừ')
+        .setRequired(true)
+        .setMinValue(1)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName('addlevel')
+    .setDescription('[Admin] Tăng level cho một user')
+    .addUserOption(option =>
+      option.setName('user')
+        .setDescription('User cần tăng level')
+        .setRequired(true)
+    )
+    .addIntegerOption(option =>
+      option.setName('amount')
+        .setDescription('Số level muốn tăng')
+        .setRequired(true)
+        .setMinValue(1)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName('removelevel')
+    .setDescription('[Admin] Giảm level của một user')
+    .addUserOption(option =>
+      option.setName('user')
+        .setDescription('User cần giảm level')
+        .setRequired(true)
+    )
+    .addIntegerOption(option =>
+      option.setName('amount')
+        .setDescription('Số level muốn giảm')
+        .setRequired(true)
+        .setMinValue(1)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName('resetuser')
+    .setDescription('[Admin] Xóa toàn bộ dữ liệu XP/Level của một user (cần mật khẩu)')
+    .addUserOption(option =>
+      option.setName('user')
+        .setDescription('User cần xóa dữ liệu')
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName('password')
+        .setDescription('Mật khẩu xác nhận xóa')
+        .setRequired(true)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 ];
 // ===================== LEADERBOARD EMBED =====================
 async function buildLeaderboardEmbed(guild, page, entries) {
@@ -557,6 +636,153 @@ client.on('interactionCreate', async (interaction) => {
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
+  }
+
+  // ---- /addxp ----
+  else if (commandName === 'addxp') {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: '❌ Bạn cần quyền Administrator để dùng lệnh này.', ephemeral: true });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const targetUser = interaction.options.getUser('user');
+    const amount = interaction.options.getInteger('amount');
+    const guildId = interaction.guild.id;
+
+    const user = await getUserData(targetUser.id, guildId);
+    const oldLevel = user.level;
+    const newTotalXP = user.xp + amount;
+
+    let newLevel = oldLevel;
+    while (true) {
+      const needed = getTotalXPForLevel(newLevel + 1);
+      if (newTotalXP >= needed) {
+        newLevel++;
+      } else {
+        break;
+      }
+      if (newLevel > 9999) break;
+    }
+
+    await pool.query(
+      'UPDATE users SET xp = $1, level = $2 WHERE user_id = $3 AND guild_id = $4',
+      [newTotalXP, newLevel, targetUser.id, guildId]
+    );
+
+    await interaction.editReply(
+      `✅ Đã cộng **${amount} XP** cho ${targetUser}. Tổng XP: **${newTotalXP}** • Level: **${newLevel}**${newLevel > oldLevel ? ' (lên cấp!)' : ''}`
+    );
+  }
+
+  // ---- /removexp ----
+  else if (commandName === 'removexp') {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: '❌ Bạn cần quyền Administrator để dùng lệnh này.', ephemeral: true });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const targetUser = interaction.options.getUser('user');
+    const amount = interaction.options.getInteger('amount');
+    const guildId = interaction.guild.id;
+
+    const user = await getUserData(targetUser.id, guildId);
+    const newTotalXP = Math.max(0, user.xp - amount);
+
+    let newLevel = 1;
+    while (newTotalXP >= getTotalXPForLevel(newLevel + 1)) {
+      newLevel++;
+      if (newLevel > 9999) break;
+    }
+
+    await pool.query(
+      'UPDATE users SET xp = $1, level = $2 WHERE user_id = $3 AND guild_id = $4',
+      [newTotalXP, newLevel, targetUser.id, guildId]
+    );
+
+    await interaction.editReply(
+      `✅ Đã trừ **${amount} XP** của ${targetUser}. Tổng XP: **${newTotalXP}** • Level: **${newLevel}**`
+    );
+  }
+
+  // ---- /addlevel ----
+  else if (commandName === 'addlevel') {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: '❌ Bạn cần quyền Administrator để dùng lệnh này.', ephemeral: true });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const targetUser = interaction.options.getUser('user');
+    const amount = interaction.options.getInteger('amount');
+    const guildId = interaction.guild.id;
+
+    const user = await getUserData(targetUser.id, guildId);
+    const newLevel = Math.min(9999, user.level + amount);
+    // Đặt XP đúng bằng mốc khởi điểm của level mới, để số XP cần lên cấp tiếp theo
+    // giống hệt như cấp đó lên tự nhiên (vd: level 2 cần 44 để lên level 3)
+    const newXP = getTotalXPForLevel(newLevel);
+
+    await pool.query(
+      'UPDATE users SET xp = $1, level = $2 WHERE user_id = $3 AND guild_id = $4',
+      [newXP, newLevel, targetUser.id, guildId]
+    );
+
+    await interaction.editReply(
+      `✅ Đã tăng ${targetUser} lên **Level ${newLevel}** (XP đặt lại về **${newXP}**, cần thêm **${getXPRequired(newLevel)}** XP để lên Level ${newLevel + 1}).`
+    );
+  }
+
+  // ---- /removelevel ----
+  else if (commandName === 'removelevel') {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: '❌ Bạn cần quyền Administrator để dùng lệnh này.', ephemeral: true });
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const targetUser = interaction.options.getUser('user');
+    const amount = interaction.options.getInteger('amount');
+    const guildId = interaction.guild.id;
+
+    const user = await getUserData(targetUser.id, guildId);
+    const newLevel = Math.max(1, user.level - amount);
+    const newXP = getTotalXPForLevel(newLevel);
+
+    await pool.query(
+      'UPDATE users SET xp = $1, level = $2 WHERE user_id = $3 AND guild_id = $4',
+      [newXP, newLevel, targetUser.id, guildId]
+    );
+
+    await interaction.editReply(
+      `✅ Đã giảm ${targetUser} xuống **Level ${newLevel}** (XP đặt lại về **${newXP}**, cần thêm **${getXPRequired(newLevel)}** XP để lên Level ${newLevel + 1}).`
+    );
+  }
+
+  // ---- /resetuser ----
+  else if (commandName === 'resetuser') {
+    if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return interaction.reply({ content: '❌ Bạn cần quyền Administrator để dùng lệnh này.', ephemeral: true });
+    }
+
+    const targetUser = interaction.options.getUser('user');
+    const password = interaction.options.getString('password');
+    const guildId = interaction.guild.id;
+
+    if (password !== 'keni2202') {
+      return interaction.reply({ content: '❌ Sai mật khẩu, hủy thao tác xóa.', ephemeral: true });
+    }
+
+    await pool.query(
+      'DELETE FROM users WHERE user_id = $1 AND guild_id = $2',
+      [targetUser.id, guildId]
+    );
+
+    await interaction.reply({
+      content: `🗑️ Đã xóa toàn bộ dữ liệu XP/Level của ${targetUser}.`,
+      ephemeral: true
+    });
   }
 });
 
